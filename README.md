@@ -75,7 +75,7 @@ Getting into the nitty-gritty, here's a more technical explanation of the key co
 
 The model uses a simple count-based approach to calculate probabilities, with Laplace smoothing to handle unseen n-grams. The seq_len parameter determines the length of the n-grams used (e.g., seq_len = 4 means we're using 4-grams).
 
-References
+## References
 
 This project was inspired by Andrej Karpathy's [makemore](https://github.com/karpathy/makemore) series. Check out his YouTube [video](https://www.youtube.com/watch?v=PaCmpygFfXo) for more insights!
 For a deep dive into n-gram models and other NLP concepts, "Speech and Language Processing" by Jurafsky and Martin, is highly recommended especially [Chapter 3](https://web.stanford.edu/~jurafsky/slp3/3.pdf).
