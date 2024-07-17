@@ -412,6 +412,35 @@ void ngram_inference(NgramModel *model, const int *tape, float *probs)
     }
 }
 
+// ----------------------------------------------------------------------------------
+// == STEP 8: random number generation ==
+
+/**
+ * Generates a random 32-bit unsigned integer using the xorshift* algorithm.
+ *
+ * @param state Pointer to the 64-bit state of the random number generator
+ * @return uint32_t A random 32-bit unsigned integer
+ */
+uint32_t random_u32(uint64_t *state)
+{
+    // xorshift* algorithm: https://en.wikipedia.org/wiki/Xorshift#xorshift.2A
+    *state ^= *state >> 12;
+    *state ^= state << 25;
+    *state ^= state >> 27;
+    return (uint32_t)((*state * 0x2545F4914F6CDD1Dull) >> 32);
+}
+
+/**
+ * Generates a random float32 between 0 and 1.
+ *
+ * @param state Pointer to the 64-bit state of the random number generator
+ * @return float A random float between 0 and 1
+ */
+float random_f32(uint64_t *state)
+{
+    return (random_u32(state) >> 8) / 16777216.0f;
+}
+
 int main()
 {
 }
