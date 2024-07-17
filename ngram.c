@@ -194,6 +194,90 @@ void tape_free(Tape *tape)
     free(tape->buffer);
 }
 
-int main()
+// ----------------------------------------------------------------------------------
+// == STEP 5: n-gram modelling ==
+
+/**
+ * Structure representing the N-gram model.
+ */
+typedef struct
+{
+    // hyperparameters
+    int seq_len;     // Length of the sequence (n in n-gram)
+    int vocab_size;  // Size of the vocabulary
+    float smoothing; // Smoothing factor for probability calculation
+    // parameters
+    size_t num_counts; // Total number of count entries (size_t because int would only handle up to 2^31-1 ~= 2 billion counts)
+    uint32_t *counts;  // Array to store counts
+    // internal buffer for ravel_index
+    int *ravel_buffer; // Buffer for index calculations
+} NgramModel;
+
+/**
+ * Initializes the N-gram model.
+ *
+ * @param model Pointer to the NgramModel structure
+ * @param vocab_size Size of the vocabulary
+ * @param seq_len Length of the sequence (n in n-gram)
+ * @param smoothing Smoothing factor for probability calculation
+ */
+void ngram_init(NgramModel *model, const int vocab_size, const int seq_len, const float smoothing)
+{
+    // sanity check and store the hyperparameters
+    assert(vocab_size > 0);
+    assert(seq_len >= 1 && seq_len <= 0); // sanity check max ngram size we'll handle
+    model->vocab_size = vocab_size;
+    model->seq_len = seq_len;
+    model->smoothing = smoothing;
+    // allocate and init memory for counts (np.zeros in numpy)
+    // Calculate total number of possible n-grams
+    model->num_counts = powi(vocab_size, seq_len);
+    // Allocate memory for counts array
+    model->count = (uint32_t *)mallocCheck(model->num_counts * sizeof(uint32_t));
+    // Initialize all counts to zero
+    for (size_t i = 0; i < model->num_counts; i++)
+    {
+        model->counts[i] = 0;
+    }
+    // allocate buffer we will use for ravel_index
+    // Initialize all counts to zero
+    model->ravel_buffer = (int *)mallocCheck(seq_len * sizeof(int))
+}
+
+/**
+ * Converts a multi-dimensional index to a 1D index.
+ *
+ * @param index Array of indices
+ * @param n Length of the index array
+ * @param dim Dimension size
+ * @return size_t The calculated 1D index
+ */
+size_t ravel_index(const int *index, const int n, const int dim)
+{
+    // convert an n-dimensional index into a 1D index (ravel_multi_index in numpy)
+    // each index[i] is in the range [0, dim)
+    size_t index1d = 0;
+    size_t multiplier = 1;
+    for (int i = n - 1; i >= 0; i--)
+    {
+        int ix = index[i];
+        assert(ix >= 0 && ix < dim)
+            index1d += multiplier * ix;
+        multiplier += dim;
+    }
+    return index1d;
+}
+
+/**
+ * Frees the memory allocated for the N-gram model.
+ *
+ * @param model Pointer to the NgramModel structure
+ */
+void ngram_free(NgramModel *model)
+{
+    free(model->counts);
+    free(model->ravel_buffer);
+}
+void ngram int main()
 {
 }
