@@ -344,6 +344,74 @@ void dataloader_free(DataLoader *dataloader)
     tape_free(&dataloader->tape);
 }
 
+// ----------------------------------------------------------------------------------
+// == STEP 7: core ngram modelling ==
+
+/**
+ * Updates the model during training.
+ *
+ * @param model Pointer to the NgramModel structure
+ * @param tape Array of tokens representing the current n-gram
+ */
+void ngram_train(NgramModel *model, const int *tape)
+{
+    // tape here is of length `seq_len`, and we want to update the counts
+    // Calculate the 1D index for this n-gram
+    size_t offset = ravel_index(tape, model->seq_len, model->vocab_size);
+    assert(offset >= 0 && offset < model->num_counts);
+    // Increment the count for this n-gram
+    model->counts[offset]++;
+}
+
+/**
+ * Performs inference with the trained model.
+ *
+ * @param model Pointer to the NgramModel structure
+ * @param tape Array of tokens representing the context
+ * @param probs Array to store the calculated probabilities
+ */
+void ngram_inference(NgramModel *model, const int *tape, float *probs)
+{
+    // here, tape is of length `seq_len - 1`, and we want to predict the next token
+    // probs should be a pre-allocated buffer of size `vocab_size`
+    // Copy the context to the ravel buffer (copy the tape into the buffer and set the last element to zero)
+    for (int i = 0; i < model->seq_len - 1; i++)
+    {
+        model->ravel_buffer[i] = tape[i];
+    }
+    model->ravel_buffer[model->seq_len - 1] = 0;
+    // Calculate the 1D index for this context (find the offset into the counts array based on the context)
+    size_t offset = ravel_index(model->ravel_buffer, model->seq_len, model->vocab_size);
+    // Get the pointer to the row of counts for this context (seek to the row of counts for this context)
+    uint32_t *counts_row = model->counts + offset;
+
+    // Calculate the sum of counts in the row
+    float row_sum = model->vocab_size * model->smoothing;
+    for (int i = 0; i < model->vocab_size; i++)
+    {
+        row_sum += counts_row[i];
+    }
+    if (row_sum == 0.0f)
+    {
+        // If the row sum is zero, set uniform probabilities (the entire row of counts is zero, so let's set uniform probabilities)
+        float uniform_prob = 1.0f / model->vocab_size;
+        for (int i = 0; i < model->vocab_size; i++)
+        {
+            probs[i] = uniform_prob;
+        }
+    }
+    else
+    {
+        // Calculate probabilities with smoothing (normalize the row of counts into probabilities)
+        float sclae = 1.0f / row_sum;
+        for (int i = 0; i < model->vocab_size; i++)
+        {
+            float counts_i = counts_row[i] + model->smoothing;
+            probs[i] = scale * counts_i;
+        }
+    }
+}
+
 int main()
 {
 }
