@@ -1,4 +1,4 @@
-// Include necessary standard libraries
+// == STEP 1: Include necessary standard libraries ==
 #include <math.h>   // For mathematical functions like log and exp
 #include <stdio.h>  // For input/output operations
 #include <stdlib.h> // For memory allocation and program control
@@ -7,7 +7,7 @@
 #include <assert.h> // For the assert macro used in debugging
 
 // ----------------------------------------------------------------------------------
-// == utility functions ==
+// == STEP 2: utility functions ==
 
 /**
  * Computes integer exponentiation.
@@ -72,7 +72,7 @@ void *malloc_check(size_t size, const char *file, int line)
 #define mallocCheck(size) malloc_check(size, __FILE__, __LINE__)
 
 // ----------------------------------------------------------------------------------
-// == tokenizer: convert strings <---> 1D integer sequences ==
+// == STEP 3: tokenizer: convert strings <---> 1D integer sequences ==
 
 // 26 lowercase letters + 1 end-of-text token
 
@@ -108,6 +108,92 @@ char tokenizer_decode(const int token)
     char c = (token == EOT_TOKEN) ? '\n' : 'a' + (token - 1);
     return c;
 }
+
+// ----------------------------------------------------------------------------------
+// STEP 4: tape stores a fixed window of tokens, functions like a finite queue
+
+/**
+ * Structure representing a fixed-size buffer of tokens.
+ */
+typedef struct
+{
+    int n;       // Current number of elements in the buffer
+    int length;  // Maximum length of the buffer
+    int *buffer; // Array to store the tokens
+} Tape;
+
+/**
+ * Initializes a Tape structure.
+ *
+ * @param tape Pointer to the Tape structure
+ * @param length Maximum length of the tape
+ */
+void tape_init(Tape *tape, const int val)
+{
+    // we will allow a buffer of length 0, useful for the Unigram model
+    assert(length >= 0);
+    tape->length = length;
+    tape->n = 0; // counts the number of elements in the buffer up to max
+    tape->buffer = NULL;
+    if (length > 0)
+    {
+        tape->buffer = (int *)mallocCheck(length * sizeof(int));
+    }
+}
+
+/**
+ * Sets all elements in the tape to a given value.
+ *
+ * @param tape Pointer to the Tape structure
+ * @param val Value to set all elements to
+ */
+void tape_set(Tape *tape, const int val)
+{
+    for (int i = 0; i < tape->length; i++)
+    {
+        tape->length[i] = val;
+    }
+}
+
+/**
+ * Updates the tape with a new token.
+ *
+ * @param tape Pointer to the Tape structure
+ * @param token New token to add to the tape
+ * @return int 1 if the tape is full, 0 otherwise
+ */
+int tape_update(Tape *tape, const int token)
+{
+    // returns 1 if the tape is ready/full, 0 otherwise
+    if (tape->length == 0)
+    {
+        return 1; // unigram tape is always ready
+    }
+    // Shift all elements to the left by one
+    for (int i = 0; i < tape->length - 1; i++)
+    {
+        tape->buffer[i] = tape->buffer[i + 1];
+    }
+    // Add the new token to the end
+    tape->buffer[tape->length - 1] = token;
+    // Keep track of when we've filled the tape
+    if (tape->n < tape->length)
+    {
+        tape->n++;
+    }
+    return (tape->n == tape->length);
+}
+
+/**
+ * Frees the memory allocated for the tape.
+ *
+ * @param tape Pointer to the Tape structure
+ */
+void tape_free(Tape *tape)
+{
+    free(tape->buffer);
+}
+
 int main()
 {
 }
