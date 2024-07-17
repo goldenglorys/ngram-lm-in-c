@@ -77,9 +77,9 @@ void *malloc_check(size_t size, const char *file, int line)
 // 26 lowercase letters + 1 end-of-text token
 
 // Define the number of tokens in our vocabulary
-#define NUM_TOKENS = 27
+#define NUM_TOKENS 27
 // Define the end-of-text token
-#define EOT_TOKEN = 0
+#define EOT_TOKEN 0
 
 /**
  * Encodes a character to its corresponding token ID.
@@ -104,7 +104,7 @@ int tokenizer_encode(const char c)
 char tokenizer_decode(const int token)
 {
     // tokens 0-25 are decoded as a-z, and token 26 is decoded as '\n'
-    assert(token >= 0 && token < NUM_TOKEN);
+    assert(token >= 0 && token < NUM_TOKENS);
     char c = (token == EOT_TOKEN) ? '\n' : 'a' + (token - 1);
     return c;
 }
@@ -128,7 +128,7 @@ typedef struct
  * @param tape Pointer to the Tape structure
  * @param length Maximum length of the tape
  */
-void tape_init(Tape *tape, const int val)
+void tape_init(Tape *tape, const int length)
 {
     // we will allow a buffer of length 0, useful for the Unigram model
     assert(length >= 0);
@@ -151,7 +151,7 @@ void tape_set(Tape *tape, const int val)
 {
     for (int i = 0; i < tape->length; i++)
     {
-        tape->length[i] = val;
+        tape->buffer[i] = val;
     }
 }
 
@@ -225,7 +225,7 @@ void ngram_init(NgramModel *model, const int vocab_size, const int seq_len, cons
 {
     // sanity check and store the hyperparameters
     assert(vocab_size > 0);
-    assert(seq_len >= 1 && seq_len <= 0); // sanity check max ngram size we'll handle
+    assert(seq_len >= 1 && seq_len <= 6); // sanity check max ngram size we'll handle
     model->vocab_size = vocab_size;
     model->seq_len = seq_len;
     model->smoothing = smoothing;
@@ -233,7 +233,7 @@ void ngram_init(NgramModel *model, const int vocab_size, const int seq_len, cons
     // Calculate total number of possible n-grams
     model->num_counts = powi(vocab_size, seq_len);
     // Allocate memory for counts array
-    model->count = (uint32_t *)mallocCheck(model->num_counts * sizeof(uint32_t));
+    model->counts = (uint32_t *)mallocCheck(model->num_counts * sizeof(uint32_t));
     // Initialize all counts to zero
     for (size_t i = 0; i < model->num_counts; i++)
     {
@@ -241,7 +241,7 @@ void ngram_init(NgramModel *model, const int vocab_size, const int seq_len, cons
     }
     // allocate buffer we will use for ravel_index
     // Initialize all counts to zero
-    model->ravel_buffer = (int *)mallocCheck(seq_len * sizeof(int))
+    model->ravel_buffer = (int *)mallocCheck(seq_len * sizeof(int));
 }
 
 /**
@@ -261,9 +261,9 @@ size_t ravel_index(const int *index, const int n, const int dim)
     for (int i = n - 1; i >= 0; i--)
     {
         int ix = index[i];
-        assert(ix >= 0 && ix < dim)
-            index1d += multiplier * ix;
-        multiplier += dim;
+        assert(ix >= 0 && ix < dim);
+        index1d += multiplier * ix;
+        multiplier *= dim;
     }
     return index1d;
 }
@@ -299,11 +299,11 @@ typedef struct
  * @param path Path to the input file
  * @param seq_len Length of sequences to read
  */
-void dataloader_init(DataLoader *dataloader, const char *path, cont int seq_len)
+void dataloader_init(DataLoader *dataloader, const char *path, const int seq_len)
 {
-    dataloader->file = fopenCheck(path, 'r');
+    dataloader->file = fopenCheck(path, "r");
     dataloader->seq_len = seq_len;
-    tape_init(*dataloader->tape, seq_len);
+    tape_init(&dataloader->tape, seq_len);
 }
 
 /**
@@ -323,7 +323,7 @@ int dataloader_next(DataLoader *dataloader)
         {
             break;
         }
-        int token tokenizer_encode(c);
+        int token = tokenizer_encode(c);
         int ready = tape_update(&dataloader->tape, token);
         if (ready)
         {
@@ -382,6 +382,7 @@ void ngram_inference(NgramModel *model, const int *tape, float *probs)
     model->ravel_buffer[model->seq_len - 1] = 0;
     // Calculate the 1D index for this context (find the offset into the counts array based on the context)
     size_t offset = ravel_index(model->ravel_buffer, model->seq_len, model->vocab_size);
+    assert(offset < model->num_counts);
     // Get the pointer to the row of counts for this context (seek to the row of counts for this context)
     uint32_t *counts_row = model->counts + offset;
 
@@ -403,7 +404,7 @@ void ngram_inference(NgramModel *model, const int *tape, float *probs)
     else
     {
         // Calculate probabilities with smoothing (normalize the row of counts into probabilities)
-        float sclae = 1.0f / row_sum;
+        float scale = 1.0f / row_sum;
         for (int i = 0; i < model->vocab_size; i++)
         {
             float counts_i = counts_row[i] + model->smoothing;
@@ -425,8 +426,8 @@ uint32_t random_u32(uint64_t *state)
 {
     // xorshift* algorithm: https://en.wikipedia.org/wiki/Xorshift#xorshift.2A
     *state ^= *state >> 12;
-    *state ^= state << 25;
-    *state ^= state >> 27;
+    *state ^= *state << 25;
+    *state ^= *state >> 27;
     return (uint32_t)((*state * 0x2545F4914F6CDD1Dull) >> 32);
 }
 
@@ -452,7 +453,7 @@ float random_f32(uint64_t *state)
  * @param coinf A random float between 0 and 1
  * @return int The index of the sampled element
  */
-int sampling_discrete(const float *probs, const int n, const float coinf)
+int sample_discrete(const float *probs, const int n, const float coinf)
 {
     assert(coinf >= 0.0f && coinf < 1.0f);
     float cdf = 0.0f;
@@ -495,7 +496,7 @@ int main(int argc, char *argv[])
 {
     // Default values for n-gram arity and smoothing factor (the arity of the n-gram model (1 = unigram, 2 = bigram, 3 = trigram, ...))
     int seq_len = 4;
-    float smoothing 0.1f;
+    float smoothing = 0.1f;
 
     // Parse command-line arguments (simple argparse, example usage: ./ngram -n 4 -s 0.1)
     for (int i = 1; i < argc; i += 2)
@@ -511,7 +512,7 @@ int main(int argc, char *argv[])
             error_usage();
         }
         // must be -x (one dash, one letter)
-        if (!strlen(argv[i]) == 2)
+        if (!(strlen(argv[i]) == 2))
         {
             error_usage();
         }
@@ -547,18 +548,19 @@ int main(int argc, char *argv[])
 
     // Sample from the model for 200 time steps
     Tape sample_tape;
-    tape_init(&sample_tape, seq_len = 1);
+    tape_init(&sample_tape, seq_len - 1);
     tape_set(&sample_tape, EOT_TOKEN); // Initialize with EOT tokens
     uint64_t rng = 1337;               // Seed for random number generator
     for (int i = 0; i < 200; i++)
     {
         ngram_inference(&model, sample_tape.buffer, probs);
         float coinf = random_f32(&rng);
-        int token = sample_tape(&sample_tape, token);
+        int token = sample_discrete(probs, NUM_TOKENS, coinf);
+        tape_update(&sample_tape, token);
         char c = tokenizer_decode(token);
-        print("%c", c);
+        printf("%c", c);
     }
-    print("\n");
+    printf("\n");
 
     // Evaluate the model on the test data
     DataLoader test_loader;
@@ -579,7 +581,7 @@ int main(int argc, char *argv[])
 
     // Calculate and print test loss and perplexity
     float mean_loss = sum_loss / count;
-    float test - perplexity = expf(mean_loss);
+    float test_perplexity = expf(mean_loss);
     printf("test_loss %f, test_perplexity %f\n", mean_loss, test_perplexity);
 
     // Clean up resources
