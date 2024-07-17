@@ -441,6 +441,34 @@ float random_f32(uint64_t *state)
     return (random_u32(state) >> 8) / 16777216.0f;
 }
 
+// ----------------------------------------------------------------------------------
+// == STEP 8: sampling ==
+
+/**
+ * Samples from a discrete probability distribution.
+ *
+ * @param probs Array of probabilities
+ * @param n Length of the probs array
+ * @param coinf A random float between 0 and 1
+ * @return int The index of the sampled element
+ */
+int sampling_discrete(const float *probs, const int n, const float coinf)
+{
+    assert(coinf >= 0.0f && coinf < 1.0f);
+    float cdf = 0.0f;
+    for (int i = 0; i < n; i++)
+    {
+        float probs_i = probs[i];
+        assert(probs_i >= 0.0f && probs_i <= 1.0f);
+        cdf += probs_i;
+        if (coinf < cdf)
+        {
+            return i;
+        }
+    }
+    return n - 1; // in case of rounding errors
+}
+
 int main()
 {
 }
