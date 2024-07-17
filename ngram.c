@@ -469,6 +469,21 @@ int sampling_discrete(const float *probs, const int n, const float coinf)
     return n - 1; // in case of rounding errors
 }
 
+// ----------------------------------------------------------------------------------
+// == STEP 9: error handling and cleanup ==
+
+/**
+ * Prints usage information and exits the program.
+ */
+void error_usage(void)
+{
+    fprintf(stderr, "Usage:   ./ngram [options]\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -n <int>    n-gram model arity (default 4)\n");
+    fprintf(stderr, "  -s <float>  smoothing factor (default 0.1)\n");
+    exit(EXIT_FAILURE);
+}
+
 int main()
 {
 }
