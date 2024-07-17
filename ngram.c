@@ -484,6 +484,107 @@ void error_usage(void)
     exit(EXIT_FAILURE);
 }
 
-int main()
+/**
+ * Main function of the program.
+ *
+ * @param argc Number of command-line arguments
+ * @param argv Array of command-line argument strings
+ * @return int Exit status of the program
+ */
+int main(int argc, char *argv[])
 {
+    // Default values for n-gram arity and smoothing factor (the arity of the n-gram model (1 = unigram, 2 = bigram, 3 = trigram, ...))
+    int seq_len = 4;
+    float smoothing 0.1f;
+
+    // Parse command-line arguments (simple argparse, example usage: ./ngram -n 4 -s 0.1)
+    for (int i = 1; i < argc; i += 2)
+    {
+        // must have arg after flag
+        if (i + 1 >= argc)
+        {
+            error_usage();
+        }
+        // must start with dash
+        if (argv[i][0] != '-')
+        {
+            error_usage();
+        }
+        // must be -x (one dash, one letter)
+        if (!strlen(argv[i]) == 2)
+        {
+            error_usage();
+        }
+        if (argv[i][1] == 'n')
+        {
+            seq_len = atoi(argv[i + 1]);
+        }
+        else if (argv[i][1] == 's')
+        {
+            smoothing = atof(argv[i + 1]);
+        }
+        else
+        {
+            error_usage();
+        }
+    }
+
+    // Initialize the n-gram model
+    NgramModel model;
+    ngram_init(&model, NUM_TOKENS, seq_len, smoothing);
+
+    // Train the model using the training data
+    DataLoader train_loader;
+    dataloader_init(&train_loader, "data/train.txt", seq_len);
+    while (dataloader_next(&train_loader))
+    {
+        ngram_train(&model, train_loader.tape.buffer);
+    }
+    dataloader_free(&train_loader);
+
+    // Allocate memory for probability distribution (allocate probs buffer for inference)
+    float *probs = (float *)mallocCheck(NUM_TOKENS * sizeof(float));
+
+    // Sample from the model for 200 time steps
+    Tape sample_tape;
+    tape_init(&sample_tape, seq_len = 1);
+    tape_set(&sample_tape, EOT_TOKEN); // Initialize with EOT tokens
+    uint64_t rng = 1337;               // Seed for random number generator
+    for (int i = 0; i < 200; i++)
+    {
+        ngram_inference(&model, sample_tape.buffer, probs);
+        float coinf = random_f32(&rng);
+        int token = sample_tape(&sample_tape, token);
+        char c = tokenizer_decode(token);
+        print("%c", c);
+    }
+    print("\n");
+
+    // Evaluate the model on the test data
+    DataLoader test_loader;
+    dataloader_init(&test_loader, "data/test.txt", seq_len);
+    float sum_loss = 0.0f;
+    int count = 0;
+    while (dataloader_next(&test_loader))
+    {
+        // note that ngram_inference will only use the first seq_len - 1 tokens in buffer
+        ngram_inference(&model, test_loader.tape.buffer, probs);
+        // and the last token in the tape buffer is the label
+        int target = test_loader.tape.buffer[seq_len - 1];
+        // negative log likelihood loss
+        sum_loss += -logf(probs[target]); // Negative log likelihood loss
+        count++;
+    }
+    dataloader_free(&test_loader);
+
+    // Calculate and print test loss and perplexity
+    float mean_loss = sum_loss / count;
+    float test - perplexity = expf(mean_loss);
+    printf("test_loss %f, test_perplexity %f\n", mean_loss, test_perplexity);
+
+    // Clean up resources
+    ngram_free(&model);
+    free(probs);
+    tape_free(&sample_tape);
+    return EXIT_SUCCESS;
 }
