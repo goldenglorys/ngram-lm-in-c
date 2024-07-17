@@ -278,6 +278,72 @@ void ngram_free(NgramModel *model)
     free(model->counts);
     free(model->ravel_buffer);
 }
-void ngram int main()
+
+// ----------------------------------------------------------------------------------
+// == STEP 6: dataloader: iterates all windows of a given length in a text file ==
+
+/**
+ * Structure representing a data loader for reading from a file.
+ */
+typedef struct
+{
+    FILE *file;  // File pointer
+    int seq_len; // Length of sequences to read
+    Tape tape;   // Tape to store the current sequence
+} DataLoader;
+
+/**
+ * Initializes a DataLoader structure.
+ *
+ * @param dataloader Pointer to the DataLoader structure
+ * @param path Path to the input file
+ * @param seq_len Length of sequences to read
+ */
+void dataloader_init(DataLoader *dataloader, const char *path, cont int seq_len)
+{
+    dataloader->file = fopenCheck(path, 'r');
+    dataloader->seq_len = seq_len;
+    tape_init(*dataloader->tape, seq_len);
+}
+
+/**
+ * Reads the next sequence from the file.
+ *
+ * @param dataloader Pointer to the DataLoader structure
+ * @return int 1 if a new sequence was read, 0 if end of file was reached
+ */
+int dataloader_next(DataLoader *dataloader)
+{
+    // returns 1 if a new window was read, 0 if the end of the file was reached
+    int c;
+    while (1)
+    {
+        c = fgetc(dataloader->file);
+        if (c == EOF)
+        {
+            break;
+        }
+        int token tokenizer_encode(c);
+        int ready = tape_update(&dataloader->tape, token);
+        if (ready)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * Frees resources associated with the DataLoader.
+ *
+ * @param dataloader Pointer to the DataLoader structure
+ */
+void dataloader_free(DataLoader *dataloader)
+{
+    fclose(dataloader->file);
+    tape_free(&dataloader->tape);
+}
+
+int main()
 {
 }
